@@ -1599,63 +1599,58 @@ function playGameMusic() {
   scheduleLoop(ac.currentTime + 0.05);
 }
 
-// ---- Trigger music on first user interaction (browser autoplay policy) ----
+// ---- Audio Unlock (iOS Safari requires a direct button tap) ----
 let audioStarted = false;
 let isMuted = false;
 
-// iOS Safari requires AudioContext created + sound played in the SAME
-// synchronous call stack as a touchend event. No promises, no delays.
-function initAudio() {
+document.getElementById('audio-unlock-btn').addEventListener('touchend', function(e) {
+  e.preventDefault();
+  unlockAudio();
+});
+document.getElementById('audio-unlock-btn').addEventListener('click', function(e) {
+  unlockAudio();
+});
+
+function unlockAudio() {
+  // Hide the unlock screen
+  document.getElementById('audio-unlock').classList.add('hidden');
+
   if (audioStarted) return;
   audioStarted = true;
-
-  // Hide the sound hint
-  const hint = document.querySelector('.tap-sound-hint');
-  if (hint) hint.style.display = 'none';
 
   try {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    // iOS: play a silent buffer immediately to unlock the context
+    // Play a silent buffer — the iOS unlock trick
     const buf = audioCtx.createBuffer(1, 1, 22050);
     const src = audioCtx.createBufferSource();
     src.buffer = buf;
     src.connect(audioCtx.destination);
     src.start(0);
 
-    // Now resume (needed on some iOS versions) then start music
+    const go = () => playMenuMusic();
     if (audioCtx.state === 'suspended') {
-      audioCtx.resume().then(() => playMenuMusic());
+      audioCtx.resume().then(go);
     } else {
-      playMenuMusic();
+      go();
     }
   } catch(e) {
     console.warn('Audio init failed:', e);
   }
 }
 
-// Use capture phase so this fires before anything else consumes the event
-document.addEventListener('touchend', function onFirstTouch() {
-  initAudio();
-  document.removeEventListener('touchend', onFirstTouch, true);
-}, true);
-
-document.addEventListener('pointerdown', function onFirstClick() {
-  initAudio();
-  document.removeEventListener('pointerdown', onFirstClick, true);
-}, true);
-
-document.addEventListener('keydown', function onFirstKey() {
-  initAudio();
-  document.removeEventListener('keydown', onFirstKey, true);
-}, true);
-
-// Resume context if iOS suspends it when app goes to background
+// Resume if iOS suspends audio when switching apps
 document.addEventListener('visibilitychange', () => {
   if (!isMuted && audioCtx && document.visibilityState === 'visible') {
     audioCtx.resume();
   }
 });
+
+// Desktop fallback — still works without the unlock screen
+document.addEventListener('pointerdown', function onFirstClick() {
+  if (!audioStarted) unlockAudio();
+  document.removeEventListener('pointerdown', onFirstClick, true);
+}, true);
 
 // Mute button
 document.getElementById('mute-btn').addEventListener('click', (e) => {
@@ -1668,7 +1663,6 @@ document.getElementById('mute-btn').addEventListener('click', (e) => {
   } else {
     if (audioCtx) audioCtx.resume();
     btn.textContent = '🔊';
-    if (!audioStarted) initAudio();
   }
 });
 

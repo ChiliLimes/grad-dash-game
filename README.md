@@ -34,4 +34,4 @@ Survive all 4 years of college and make it to graduation. Easier said than done.
 
 ---
 
-Congrats Treyvon. We always knew you'd make it. 🎓
+Congrats lil bro!!! 🎓

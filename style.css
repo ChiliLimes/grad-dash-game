@@ -14,6 +14,7 @@ body {
   justify-content: center;
   align-items: center;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   font-family: 'Segoe UI', sans-serif;
   position: fixed;
@@ -25,6 +26,7 @@ body {
   position: relative;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -34,9 +36,11 @@ body {
 #gameCanvas {
   display: block;
   background: #0d0d2b;
-  max-width: 100%;
-  max-height: 100%;
+  /* CSS size is set by JS, this just ensures it never overflows */
+  max-width: 100vw;
+  max-height: 100dvh;
   touch-action: none;
+  image-rendering: auto;
 }
 
 /* ---- Overlays ---- */
@@ -285,6 +289,30 @@ button:active {
 
 #pause-btn.hidden {
   display: none;
+}
+
+/* ---- Mute button ---- */
+#mute-btn {
+  position: absolute;
+  top: 10px;
+  right: 70px;
+  background: rgba(20,10,50,0.75);
+  border: 1px solid #7b2fff;
+  color: #e8d5ff;
+  font-size: 1.3rem;
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  z-index: 6;
+  transition: background 0.15s;
+  touch-action: manipulation;
+  min-width: 50px;
+  min-height: 50px;
+  margin-top: 0;
+}
+
+#mute-btn:active {
+  background: rgba(123,47,255,0.5);
 }
 
 /* ---- Mobile HUD ---- */

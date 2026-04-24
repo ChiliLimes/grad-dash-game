@@ -11,19 +11,36 @@ function resizeCanvas() {
   const ratio = maxW / maxH;
   const winW = window.innerWidth;
   const winH = window.innerHeight;
+
+  let displayW, displayH;
   if (winW / winH > ratio) {
-    canvas.height = Math.min(winH, maxH);
-    canvas.width = canvas.height * ratio;
+    displayH = Math.min(winH, maxH);
+    displayW = displayH * ratio;
   } else {
-    canvas.width = Math.min(winW, maxW);
-    canvas.height = canvas.width / ratio;
+    displayW = Math.min(winW, maxW);
+    displayH = displayW / ratio;
   }
-  SCALE = canvas.width / maxW;
+
+  // Account for device pixel ratio for crisp rendering on mobile
+  const dpr = window.devicePixelRatio || 1;
+
+  // Set the canvas CSS size (what you see)
+  canvas.style.width  = displayW + 'px';
+  canvas.style.height = displayH + 'px';
+
+  // Set the actual canvas buffer size (scaled up by dpr)
+  canvas.width  = Math.round(displayW * dpr);
+  canvas.height = Math.round(displayH * dpr);
+
+  // Scale all drawing by dpr so logical units stay the same
+  SCALE = (displayW / maxW) * dpr;
 }
 
 let SCALE = 1;
 resizeCanvas();
-window.addEventListener('resize', resizeCanvas);
+window.addEventListener('resize', () => {
+  resizeCanvas();
+});
 
 // ---- Game constants (logical units, scaled at draw time) ----
 const LW = 900, LH = 500;   // logical width/height
@@ -569,6 +586,7 @@ function goToMenu() {
   document.getElementById('game-hud').classList.add('hidden');
   showScreen('diploma-screen');
   drawPreviews();
+  playMenuMusic();
 }
 
 document.addEventListener('keydown', e => {
@@ -653,6 +671,7 @@ function startGame() {
   document.getElementById('game-hud').classList.remove('hidden');
   resetGame();
   state = 'playing';
+  playGameMusic();
 }
 
 function restartGame() {
@@ -661,6 +680,7 @@ function restartGame() {
   document.getElementById('game-hud').classList.remove('hidden');
   resetGame();
   state = 'playing';
+  playGameMusic();
 }
 
 function resetGame() {
@@ -857,6 +877,8 @@ function update() {
     if (score > bestScore) bestScore = score;
     document.getElementById('win-score').textContent = Math.floor(score);
     showScreen('win-screen');
+    stopMusic();
+    setTimeout(() => playMenuMusic(), 500);
     spawnParticles(LW / 2, LH / 2, '#f0c040', 40);
     spawnParticles(LW / 2, LH / 2, '#7b2fff', 40);
   }
@@ -866,6 +888,7 @@ function killPlayer() {
   state = 'dead';
   if (score > bestScore) bestScore = score;
   document.getElementById('game-hud').classList.add('hidden');
+  stopMusic();
   spawnParticles(player.x + player.w / 2, player.y + player.h / 2, '#ff4466', 20);
   document.getElementById('final-score').textContent = Math.floor(score);
   
@@ -905,10 +928,8 @@ function killPlayer() {
 function drawBackground() {
   const theme = getCurrentTheme();
   
-  // Themed gradient sky with boss effects
-  const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  const grad = ctx.createLinearGradient(0, 0, 0, LH);
   if (isBossLevel) {
-    // Dark, ominous D&D atmosphere
     grad.addColorStop(0, '#0a0a0a');
     grad.addColorStop(0.3, '#1a0a1a');
     grad.addColorStop(0.7, theme.bg);
@@ -919,69 +940,61 @@ function drawBackground() {
     grad.addColorStop(1, theme.ground);
   }
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, LW, LH);
 
-  // Boss level lightning effects
   if (isBossLevel) {
     bossEffects.forEach(effect => {
       if (effect.type === 'lightning') {
         ctx.globalAlpha = effect.life * 0.8;
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = effect.width * SCALE;
+        ctx.lineWidth = effect.width;
         ctx.beginPath();
-        ctx.moveTo(effect.x * SCALE, 0);
-        ctx.lineTo((effect.x + Math.sin(frameCount * 0.1) * 20) * SCALE, canvas.height);
+        ctx.moveTo(effect.x, 0);
+        ctx.lineTo(effect.x + Math.sin(frameCount * 0.1) * 20, LH);
         ctx.stroke();
       }
     });
     ctx.globalAlpha = 1;
   }
 
-  // Stars with twinkling for boss level
   stars.forEach(s => {
     ctx.globalAlpha = s.alpha;
     ctx.fillStyle = isBossLevel ? '#ff88ff' : '#ffffff';
     ctx.beginPath();
-    ctx.arc(s.x * SCALE, s.y * SCALE, s.r * SCALE, 0, Math.PI * 2);
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
     ctx.fill();
   });
 
-  // Background elements with rotation for boss level
   backgroundElements.forEach(elem => {
     ctx.globalAlpha = elem.alpha;
-    ctx.font = `${24 * elem.scale * SCALE}px serif`;
+    ctx.font = `${24 * elem.scale}px serif`;
     ctx.textAlign = 'center';
-    
     if (elem.rotation > 0) {
       ctx.save();
-      ctx.translate(elem.x * SCALE, elem.y * SCALE);
+      ctx.translate(elem.x, elem.y);
       ctx.rotate(elem.rotation);
       ctx.fillText(elem.element, 0, 0);
       ctx.restore();
     } else {
-      ctx.fillText(elem.element, elem.x * SCALE, elem.y * SCALE);
+      ctx.fillText(elem.element, elem.x, elem.y);
     }
   });
-
   ctx.globalAlpha = 1;
 
-  // Scene transition effects
   sceneEffects.forEach(effect => {
     if (effect.type === 'transition') {
       ctx.globalAlpha = effect.life;
       ctx.fillStyle = effect.color;
       ctx.beginPath();
-      ctx.arc(effect.x * SCALE, effect.y * SCALE, effect.size * SCALE, 0, Math.PI * 2);
+      ctx.arc(effect.x, effect.y, effect.size, 0, Math.PI * 2);
       ctx.fill();
     }
   });
   ctx.globalAlpha = 1;
 
-  // Themed ground/stage
-  const groundY = GROUND_Y * SCALE;
-  const groundH = (LH - GROUND_Y) * SCALE;
-  
-  // Main ground with boss glow effect
+  const groundY = GROUND_Y;
+  const groundH = LH - GROUND_Y;
+
   if (isBossLevel) {
     const glowGrad = ctx.createLinearGradient(0, groundY, 0, groundY + groundH);
     glowGrad.addColorStop(0, theme.ground + 'ff');
@@ -991,81 +1004,70 @@ function drawBackground() {
   } else {
     ctx.fillStyle = theme.ground;
   }
-  ctx.fillRect(0, groundY, canvas.width, groundH);
-  
-  // Ground highlight/stage effect
+  ctx.fillRect(0, groundY, LW, groundH);
+
   ctx.fillStyle = isBossLevel ? '#8a4a8a' : theme.ground + 'aa';
-  ctx.fillRect(0, groundY, canvas.width, 8 * SCALE);
-  
-  // Ground pattern based on theme
-  ctx.strokeStyle = isBossLevel ? '#aa44aa' : theme.ground + '66';
-  ctx.lineWidth = (isBossLevel ? 3 : 2) * SCALE;
-  
+  ctx.fillRect(0, groundY, LW, 8);
+
+  ctx.lineWidth = isBossLevel ? 3 : 2;
   if (isBossLevel) {
-    // Mystical runes pattern
     for (let x = 0; x < LW; x += 80) {
       ctx.strokeStyle = `hsl(${(frameCount + x) % 360}, 70%, 50%)`;
       ctx.beginPath();
-      ctx.arc(x * SCALE, (groundY + 20 * SCALE), 15 * SCALE, 0, Math.PI * 2);
+      ctx.arc(x, groundY + 20, 15, 0, Math.PI * 2);
       ctx.stroke();
     }
   } else {
-    // Simple tile pattern
+    ctx.strokeStyle = theme.ground + '66';
     for (let x = 0; x < LW; x += 50) {
       ctx.beginPath();
-      ctx.moveTo(x * SCALE, groundY);
-      ctx.lineTo(x * SCALE, groundY + groundH);
+      ctx.moveTo(x, groundY);
+      ctx.lineTo(x, groundY + groundH);
       ctx.stroke();
     }
   }
-  
-  // Theme name display with boss styling
+
   ctx.fillStyle = isBossLevel ? '#ff4444' : '#ffffff88';
-  ctx.font = `${(isBossLevel ? 20 : 16) * SCALE}px ${isBossLevel ? 'serif' : 'sans-serif'}`;
+  ctx.font = `${isBossLevel ? 20 : 16}px ${isBossLevel ? 'serif' : 'sans-serif'}`;
   ctx.textAlign = 'right';
   if (isBossLevel) {
     ctx.shadowColor = '#ff0000';
-    ctx.shadowBlur = 10 * SCALE;
+    ctx.shadowBlur = 10;
   }
-  ctx.fillText(theme.name, (LW - 20) * SCALE, 30 * SCALE);
+  ctx.fillText(theme.name, LW - 20, 30);
   ctx.shadowBlur = 0;
 }
 
 function drawPlayer() {
-  drawCharacter(ctx, selectedChar, player.x, player.y, player.w, player.h, player.animFrame, player.onGround, SCALE);
+  drawCharacter(ctx, selectedChar, player.x, player.y, player.w, player.h, player.animFrame, player.onGround, 1);
 }
 
 function drawObstacles() {
   obstacles.forEach(obs => {
-    const ox = obs.x * SCALE;
-    const oy = obs.y * SCALE;
-    const ow = obs.w * SCALE;
-    const oh = obs.h * SCALE;
+    const ox = obs.x;
+    const oy = obs.y;
+    const ow = obs.w;
+    const oh = obs.h;
 
-    // Boss obstacles get glow effects
     if (obs.boss) {
       ctx.shadowColor = obs.color;
-      ctx.shadowBlur = obs.glowIntensity * 20 * SCALE;
+      ctx.shadowBlur = obs.glowIntensity * 20;
     }
 
     if (obs.isGap) {
-      // Draw gap as missing ground
       ctx.fillStyle = '#000000';
-      ctx.fillRect(ox, oy * SCALE, ow, oh * SCALE);
-      
+      ctx.fillRect(ox, oy, ow, LH - oy);
       if (obs.boss) {
-        // Void gap with swirling effect
         ctx.fillStyle = '#4b0082';
         for (let i = 0; i < 5; i++) {
           const swirl = Math.sin(frameCount * 0.05 + i) * 10;
-          ctx.fillRect(ox + swirl * SCALE, (oy + i * 15) * SCALE, ow - swirl * 2 * SCALE, 10 * SCALE);
+          ctx.fillRect(ox + swirl, oy + i * 15, ow - swirl * 2, 10);
         }
       }
     } else {
       switch (obs.type) {
         case 'spike':
         case 'dragon_spike':
-          // Triangle spike
           ctx.fillStyle = obs.color;
           ctx.beginPath();
           ctx.moveTo(ox + ow / 2, oy);
@@ -1073,9 +1075,7 @@ function drawObstacles() {
           ctx.lineTo(ox + ow, oy + oh);
           ctx.closePath();
           ctx.fill();
-          
           if (obs.boss) {
-            // Dragon spike gets scales
             ctx.fillStyle = '#ff4444';
             for (let i = 0; i < 3; i++) {
               ctx.fillRect(ox + ow * 0.2 + i * ow * 0.2, oy + oh * 0.7, ow * 0.1, oh * 0.1);
@@ -1086,31 +1086,23 @@ function drawObstacles() {
         case 'low_block':
         case 'medium_block':
         case 'tall_block':
-          // Rectangular blocks
           ctx.fillStyle = obs.color;
           ctx.fillRect(ox, oy, ow, oh);
-          
-          // Add highlight
           ctx.fillStyle = obs.color + '66';
           ctx.fillRect(ox, oy, ow, oh * 0.2);
-          
-          // Add border
           ctx.strokeStyle = obs.color + 'aa';
-          ctx.lineWidth = 2 * SCALE;
+          ctx.lineWidth = 2;
           ctx.strokeRect(ox, oy, ow, oh);
           break;
 
         case 'double_spike':
-          // Two spikes side by side
           ctx.fillStyle = obs.color;
-          // Left spike
           ctx.beginPath();
           ctx.moveTo(ox + ow * 0.25, oy);
           ctx.lineTo(ox, oy + oh);
           ctx.lineTo(ox + ow * 0.5, oy + oh);
           ctx.closePath();
           ctx.fill();
-          // Right spike
           ctx.beginPath();
           ctx.moveTo(ox + ow * 0.75, oy);
           ctx.lineTo(ox + ow * 0.5, oy + oh);
@@ -1120,29 +1112,23 @@ function drawObstacles() {
           break;
 
         case 'magic_barrier':
-          // Magical floating barrier
           ctx.fillStyle = obs.color;
           ctx.fillRect(ox, oy, ow, oh);
-          
-          // Magic sparkles
           ctx.fillStyle = '#ffffff';
           for (let i = 0; i < 8; i++) {
-            const sparkleX = ox + (i % 4) * ow * 0.25 + Math.sin(frameCount * 0.1 + i) * 5 * SCALE;
-            const sparkleY = oy + Math.floor(i / 4) * oh * 0.5 + Math.cos(frameCount * 0.1 + i) * 5 * SCALE;
+            const sparkleX = ox + (i % 4) * ow * 0.25 + Math.sin(frameCount * 0.1 + i) * 5;
+            const sparkleY = oy + Math.floor(i / 4) * oh * 0.5 + Math.cos(frameCount * 0.1 + i) * 5;
             ctx.beginPath();
-            ctx.arc(sparkleX, sparkleY, 2 * SCALE, 0, Math.PI * 2);
+            ctx.arc(sparkleX, sparkleY, 2, 0, Math.PI * 2);
             ctx.fill();
           }
           break;
 
         case 'boss_attack':
-          // Floating boss attack
           ctx.fillStyle = obs.color;
           ctx.fillRect(ox, oy, ow, oh);
-          
-          // Energy waves
           ctx.strokeStyle = '#ffff00';
-          ctx.lineWidth = 3 * SCALE;
+          ctx.lineWidth = 3;
           for (let i = 0; i < 3; i++) {
             ctx.beginPath();
             ctx.moveTo(ox, oy + i * oh * 0.33);
@@ -1152,7 +1138,6 @@ function drawObstacles() {
           break;
       }
     }
-
     ctx.shadowBlur = 0;
   });
 }
@@ -1162,7 +1147,7 @@ function drawParticles() {
     ctx.globalAlpha = p.life;
     ctx.fillStyle = p.color;
     ctx.beginPath();
-    ctx.arc(p.x * SCALE, p.y * SCALE, p.r * SCALE, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
     ctx.fill();
   });
   ctx.globalAlpha = 1;
@@ -1171,34 +1156,29 @@ function drawParticles() {
 function drawUI() {
   const theme = getCurrentTheme();
   
-  // Score with boss styling
   ctx.fillStyle = isBossLevel ? '#ff4444' : '#f0c040';
-  ctx.font = `${(isBossLevel ? 28 : 24) * SCALE}px ${isBossLevel ? 'serif' : 'sans-serif'}`;
+  ctx.font = `bold ${isBossLevel ? 28 : 24}px ${isBossLevel ? 'serif' : 'sans-serif'}`;
   ctx.textAlign = 'left';
   if (isBossLevel) {
     ctx.shadowColor = '#ff0000';
-    ctx.shadowBlur = 8 * SCALE;
+    ctx.shadowBlur = 8;
   }
-  ctx.fillText(`${Math.floor(score)}m`, 20 * SCALE, 40 * SCALE);
+  ctx.fillText(`${Math.floor(score)}m`, 20, 40);
   ctx.shadowBlur = 0;
 
-  // Current year indicator
   ctx.fillStyle = isBossLevel ? '#ffaa44' : '#ffffff';
-  ctx.font = `${(isBossLevel ? 20 : 18) * SCALE}px ${isBossLevel ? 'serif' : 'sans-serif'}`;
-  ctx.fillText(`📍 ${theme.name}`, 20 * SCALE, 70 * SCALE);
+  ctx.font = `${isBossLevel ? 20 : 18}px ${isBossLevel ? 'serif' : 'sans-serif'}`;
+  ctx.fillText(`📍 ${theme.name}`, 20, 70);
 
-  // Progress bar to graduation
   const progress = Math.min(score / WIN_DISTANCE, 1);
-  const barW = 200 * SCALE;
-  const barH = 10 * SCALE;
-  const barX = 20 * SCALE;
-  const barY = 90 * SCALE;
+  const barW = 200;
+  const barH = 10;
+  const barX = 20;
+  const barY = 90;
 
-  // Progress bar background
   ctx.fillStyle = isBossLevel ? '#440044' : '#333366';
   ctx.fillRect(barX, barY, barW, barH);
-  
-  // Progress bar fill with boss effects
+
   if (isBossLevel) {
     const grad = ctx.createLinearGradient(barX, barY, barX + barW * progress, barY);
     grad.addColorStop(0, '#ff0000');
@@ -1211,15 +1191,9 @@ function drawUI() {
   ctx.fillRect(barX, barY, barW * progress, barH);
 
   ctx.fillStyle = isBossLevel ? '#ffaa44' : '#ffffff';
-  ctx.font = `${14 * SCALE}px ${isBossLevel ? 'serif' : 'sans-serif'}`;
-  ctx.fillText('🎓 Graduation Progress', barX, barY - 8 * SCALE);
+  ctx.font = `14px ${isBossLevel ? 'serif' : 'sans-serif'}`;
+  ctx.fillText('🎓 Graduation Progress', barX, barY - 8);
 
-  if (progress >= 1) {
-    ctx.fillStyle = '#f0c040';
-    ctx.fillText('GRADUATED! 🎉🎓', barX + barW + 10 * SCALE, barY + barH);
-  }
-
-  // Year milestones
   const milestones = [
     { score: 100, name: 'Sophomore Year', emoji: '📚' },
     { score: 200, name: 'Junior Year', emoji: '💼' },
@@ -1230,20 +1204,19 @@ function drawUI() {
   const nextMilestone = milestones.find(m => score < m.score);
   if (nextMilestone) {
     ctx.fillStyle = isBossLevel ? '#ccaacc' : '#cccccc';
-    ctx.font = `${12 * SCALE}px ${isBossLevel ? 'serif' : 'sans-serif'}`;
-    ctx.fillText(`Next: ${nextMilestone.emoji} ${nextMilestone.name} (${nextMilestone.score}m)`, 20 * SCALE, 120 * SCALE);
+    ctx.font = `12px ${isBossLevel ? 'serif' : 'sans-serif'}`;
+    ctx.fillText(`Next: ${nextMilestone.emoji} ${nextMilestone.name} (${nextMilestone.score}m)`, 20, 120);
   }
 
-  // Boss level warning
   if (isBossLevel) {
     ctx.fillStyle = '#ff0000';
-    ctx.font = `${16 * SCALE}px serif`;
+    ctx.font = `16px serif`;
     ctx.textAlign = 'center';
     ctx.shadowColor = '#000000';
-    ctx.shadowBlur = 5 * SCALE;
+    ctx.shadowBlur = 5;
     const warningAlpha = Math.sin(frameCount * 0.1) * 0.3 + 0.7;
     ctx.globalAlpha = warningAlpha;
-    ctx.fillText('⚠️ FINAL BOSS LEVEL ⚠️', (LW / 2) * SCALE, 150 * SCALE);
+    ctx.fillText('⚠️ FINAL BOSS LEVEL ⚠️', LW / 2, 150);
     ctx.globalAlpha = 1;
     ctx.shadowBlur = 0;
     ctx.textAlign = 'left';
@@ -1258,7 +1231,11 @@ function gameLoop() {
   if (state === 'playing') {
     update();
   }
-  
+
+  // Draw everything in logical space — SCALE handles DPR + display sizing
+  ctx.save();
+  ctx.scale(SCALE, SCALE);
+
   drawBackground();
   drawObstacles();
   drawPlayer();
@@ -1270,8 +1247,10 @@ function gameLoop() {
 
   if (state === 'paused') {
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, LW, LH);
   }
+
+  ctx.restore();
   
   requestAnimationFrame(gameLoop);
 }
@@ -1281,7 +1260,6 @@ function init() {
   const saved = localStorage.getItem('gradDashBest');
   if (saved) bestScore = parseFloat(saved);
 
-  // Default character selection
   const defaultCard = document.querySelector('.char-card[data-char="treyvon"]');
   if (defaultCard) defaultCard.classList.add('selected');
 
@@ -1294,7 +1272,6 @@ function saveBestScore() {
   localStorage.setItem('gradDashBest', bestScore.toString());
 }
 
-// Auto-save best score when it changes
 let lastSavedBest = bestScore;
 setInterval(() => {
   if (bestScore > lastSavedBest) {
@@ -1302,6 +1279,362 @@ setInterval(() => {
     lastSavedBest = bestScore;
   }
 }, 1000);
+
+// ============================================================
+//  AUDIO ENGINE
+// ============================================================
+
+let audioCtx = null;
+let currentMusic = null; // 'menu' | 'game' | null
+let musicNodes = [];     // all active oscillators/intervals to stop
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function stopMusic() {
+  musicNodes.forEach(n => {
+    try {
+      if (n.stop) n.stop();
+      if (n.disconnect) n.disconnect();
+      if (typeof n === 'number') clearInterval(n);
+    } catch(e) {}
+  });
+  musicNodes = [];
+  currentMusic = null;
+}
+
+// ---- Graduation / Menu Music ----
+// Pomp and Circumstance-inspired: slow, majestic, ceremonial
+function playMenuMusic() {
+  if (currentMusic === 'menu') return;
+  stopMusic();
+  currentMusic = 'menu';
+  const ac = getAudioCtx();
+
+  const master = ac.createGain();
+  master.gain.setValueAtTime(0.15, ac.currentTime);
+  master.connect(ac.destination);
+  musicNodes.push(master);
+
+  const delay = ac.createDelay(0.5);
+  delay.delayTime.value = 0.4;
+  const feedback = ac.createGain();
+  feedback.gain.value = 0.25;
+  const delayGain = ac.createGain();
+  delayGain.gain.value = 0.2;
+  delay.connect(feedback);
+  feedback.connect(delay);
+  delay.connect(delayGain);
+  delayGain.connect(master);
+  musicNodes.push(delay, feedback, delayGain);
+
+  const N = {
+    G3:196.0, C4:261.6, D4:293.7, E4:329.6, F4:349.2, G4:392.0,
+    A4:440.0, B4:493.9, C5:523.3, D5:587.3, E5:659.3, G5:784.0,
+    A5:880.0, REST:0
+  };
+
+  // Full Pomp & Circumstance A section + B section for variety
+  const melodyA = [
+    [N.G4,0.4],[N.G4,0.4],[N.G4,0.4],[N.C5,1.2],
+    [N.E5,0.4],[N.D5,0.4],[N.C5,0.4],[N.E5,1.2],
+    [N.D5,0.4],[N.C5,0.4],[N.D5,0.4],[N.G4,1.2],
+    [N.REST,0.4],[N.G4,0.4],[N.G4,0.4],[N.C5,1.2],
+    [N.E5,0.4],[N.D5,0.4],[N.C5,0.4],[N.G5,1.6],
+    [N.E5,0.4],[N.D5,0.4],[N.C5,0.4],[N.E5,1.2],
+    [N.D5,0.4],[N.C5,0.4],[N.B4,0.4],[N.C5,1.6],
+  ];
+
+  // B section — higher, more triumphant
+  const melodyB = [
+    [N.E5,0.4],[N.E5,0.4],[N.E5,0.4],[N.A5,1.2],
+    [N.G5,0.4],[N.E5,0.4],[N.D5,0.4],[N.E5,1.2],
+    [N.G5,0.4],[N.E5,0.4],[N.D5,0.4],[N.C5,1.6],
+    [N.REST,0.4],[N.E5,0.4],[N.E5,0.4],[N.A5,1.2],
+    [N.G5,0.4],[N.E5,0.4],[N.D5,0.4],[N.G5,1.6],
+    [N.E5,0.4],[N.D5,0.4],[N.C5,0.4],[N.D5,1.2],
+    [N.C5,0.4],[N.B4,0.4],[N.A4,0.4],[N.G4,1.6],
+  ];
+
+  // Alternate A and B sections so it never feels like a short loop
+  const sections = [melodyA, melodyB, melodyA, melodyB];
+  let sectionIndex = 0;
+
+  function playSection(startTime) {
+    if (currentMusic !== 'menu') return;
+    const section = sections[sectionIndex % sections.length];
+    sectionIndex++;
+
+    const osc = ac.createOscillator();
+    const oscGain = ac.createGain();
+    osc.type = 'triangle';
+    osc.connect(oscGain);
+    oscGain.connect(master);
+    oscGain.connect(delay);
+    oscGain.gain.setValueAtTime(0, startTime);
+    osc.start(startTime);
+    musicNodes.push(osc, oscGain);
+
+    let t = startTime;
+    let totalDur = 0;
+    section.forEach(([freq, dur]) => {
+      if (freq === 0) {
+        oscGain.gain.setValueAtTime(0, t);
+      } else {
+        osc.frequency.setValueAtTime(freq, t);
+        oscGain.gain.setValueAtTime(0, t);
+        oscGain.gain.linearRampToValueAtTime(0.65, t + 0.03);
+        oscGain.gain.setValueAtTime(0.65, t + dur * 0.75);
+        oscGain.gain.linearRampToValueAtTime(0, t + dur * 0.95);
+      }
+      t += dur;
+      totalDur += dur;
+    });
+    osc.stop(t + 0.1);
+
+    // Small pause between sections for breathing room
+    const pauseMs = (totalDur + 0.6) * 1000;
+    const id = setTimeout(() => playSection(ac.currentTime), pauseMs);
+    musicNodes.push({ stop: () => clearTimeout(id), disconnect: () => {} });
+  }
+
+  // Bass — changes note per section
+  const bassPatterns = [
+    [N.C4, N.G3, N.C4, N.G3],
+    [N.A4, N.E4, N.A4, N.E4],
+  ];
+  let bassSection = 0;
+
+  function playBass(startTime) {
+    if (currentMusic !== 'menu') return;
+    const pattern = bassPatterns[bassSection % bassPatterns.length];
+    bassSection++;
+    let t = startTime;
+    let totalDur = 0;
+    const osc = ac.createOscillator();
+    const g = ac.createGain();
+    osc.type = 'sine';
+    osc.connect(g); g.connect(master);
+    osc.start(t);
+    musicNodes.push(osc, g);
+
+    for (let rep = 0; rep < 7; rep++) {
+      pattern.forEach(freq => {
+        osc.frequency.setValueAtTime(freq, t);
+        g.gain.setValueAtTime(0.45, t);
+        g.gain.linearRampToValueAtTime(0, t + 0.35);
+        t += 0.4;
+        totalDur += 0.4;
+      });
+    }
+    osc.stop(t);
+    const id = setTimeout(() => playBass(ac.currentTime), (totalDur + 0.6) * 1000);
+    musicNodes.push({ stop: () => clearTimeout(id), disconnect: () => {} });
+  }
+
+  playSection(ac.currentTime + 0.1);
+  playBass(ac.currentTime + 0.1);
+}
+
+// ---- EDM Game Music ----
+function playGameMusic() {
+  if (currentMusic === 'game') return;
+  stopMusic();
+  currentMusic = 'game';
+  const ac = getAudioCtx();
+
+  const master = ac.createGain();
+  master.gain.setValueAtTime(0.2, ac.currentTime);
+  master.connect(ac.destination);
+  musicNodes.push(master);
+
+  const comp = ac.createDynamicsCompressor();
+  comp.threshold.value = -18;
+  comp.knee.value = 6;
+  comp.ratio.value = 8;
+  comp.attack.value = 0.003;
+  comp.release.value = 0.15;
+  comp.connect(master);
+  musicNodes.push(comp);
+
+  const BPM = 128;
+  const beat = 60 / BPM;
+
+  function kick(time) {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(160, time);
+    o.frequency.exponentialRampToValueAtTime(40, time + 0.08);
+    g.gain.setValueAtTime(1.2, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time + 0.25);
+    o.connect(g); g.connect(comp);
+    o.start(time); o.stop(time + 0.3);
+  }
+
+  function hihat(time, vol = 0.12) {
+    const buf = ac.createBuffer(1, ac.sampleRate * 0.04, ac.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const src = ac.createBufferSource();
+    src.buffer = buf;
+    const g = ac.createGain(), f = ac.createBiquadFilter();
+    f.type = 'highpass'; f.frequency.value = 9000;
+    g.gain.setValueAtTime(vol, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
+    src.connect(f); f.connect(g); g.connect(comp);
+    src.start(time); src.stop(time + 0.05);
+  }
+
+  function snare(time) {
+    const buf = ac.createBuffer(1, ac.sampleRate * 0.12, ac.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const src = ac.createBufferSource();
+    src.buffer = buf;
+    const g = ac.createGain(), f = ac.createBiquadFilter();
+    f.type = 'bandpass'; f.frequency.value = 1800;
+    g.gain.setValueAtTime(0.45, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+    src.connect(f); f.connect(g); g.connect(comp);
+    src.start(time); src.stop(time + 0.15);
+  }
+
+  function bass(time, freq, dur) {
+    const o = ac.createOscillator(), g = ac.createGain(), f = ac.createBiquadFilter();
+    o.type = 'sawtooth'; o.frequency.value = freq;
+    f.type = 'lowpass';
+    f.frequency.setValueAtTime(500, time);
+    f.frequency.linearRampToValueAtTime(150, time + dur);
+    g.gain.setValueAtTime(0.45, time);
+    g.gain.linearRampToValueAtTime(0, time + dur);
+    o.connect(f); f.connect(g); g.connect(comp);
+    o.start(time); o.stop(time + dur + 0.05);
+  }
+
+  function lead(time, freq, dur, vol = 0.25) {
+    const o = ac.createOscillator(), o2 = ac.createOscillator(), g = ac.createGain();
+    o.type = 'sawtooth'; o2.type = 'sawtooth';
+    o.frequency.value = freq; o2.frequency.value = freq * 1.006;
+    g.gain.setValueAtTime(0, time);
+    g.gain.linearRampToValueAtTime(vol, time + 0.02);
+    g.gain.setValueAtTime(vol, time + dur * 0.7);
+    g.gain.linearRampToValueAtTime(0, time + dur);
+    o.connect(g); o2.connect(g); g.connect(comp);
+    o.start(time); o2.start(time);
+    o.stop(time + dur + 0.05); o2.stop(time + dur + 0.05);
+  }
+
+  // 4 distinct chord progressions that rotate every 2 bars
+  const progressions = [
+    // Am - F - C - G (classic)
+    [{b:55.0, l:[220.0,261.6,329.6]},{b:43.65,l:[174.6,220.0,261.6]},{b:65.41,l:[261.6,329.6,392.0]},{b:49.0,l:[196.0,246.9,293.7]}],
+    // Dm - Bb - F - C (darker)
+    [{b:36.7, l:[146.8,174.6,220.0]},{b:58.27,l:[233.1,293.7,349.2]},{b:43.65,l:[174.6,220.0,261.6]},{b:65.41,l:[261.6,329.6,392.0]}],
+    // Em - C - G - D (energetic)
+    [{b:41.2, l:[164.8,196.0,246.9]},{b:65.41,l:[261.6,329.6,392.0]},{b:49.0, l:[196.0,246.9,293.7]},{b:36.7, l:[146.8,174.6,220.0]}],
+    // Am - G - F - E (descending)
+    [{b:55.0, l:[220.0,261.6,329.6]},{b:49.0, l:[196.0,246.9,293.7]},{b:43.65,l:[174.6,220.0,261.6]},{b:41.2, l:[164.8,196.0,246.9]}],
+  ];
+
+  let loopCount = 0;
+
+  function scheduleLoop(startTime) {
+    if (currentMusic !== 'game') return;
+
+    // Switch progression every 2 loops for variety
+    const prog = progressions[Math.floor(loopCount / 2) % progressions.length];
+    const isFillBar = (loopCount % 4 === 3); // every 4th loop add a fill
+    loopCount++;
+
+    let t = startTime;
+
+    for (let b = 0; b < 4; b++) {
+      const bt = t + b * beat * 4;
+      const chord = prog[b];
+
+      // Kick pattern — vary slightly on fill bar
+      kick(bt);
+      kick(bt + beat * 2);
+      if (isFillBar) {
+        kick(bt + beat * 3);
+        kick(bt + beat * 3.5);
+      }
+
+      // Snare: 2 and 4
+      snare(bt + beat);
+      snare(bt + beat * 3);
+
+      // Hi-hats: 8th notes, open on offbeats
+      for (let h = 0; h < 8; h++) {
+        hihat(bt + h * beat * 0.5, h % 2 === 0 ? 0.14 : 0.08);
+      }
+      // 16th note hi-hat run on fill bar
+      if (isFillBar && b === 3) {
+        for (let h = 0; h < 16; h++) hihat(bt + h * beat * 0.25, 0.06);
+      }
+
+      // Bass
+      bass(bt, chord.b, beat * 4 - 0.05);
+
+      // Lead — arpeggiate differently each bar
+      if (b % 2 === 0) {
+        chord.l.forEach((freq, i) => lead(bt + i * beat, freq, beat * 0.8));
+        chord.l.forEach((freq, i) => lead(bt + beat * 2 + i * (beat/3), freq * 2, (beat/3) * 0.75, 0.18));
+      } else {
+        // Reverse arpeggio on odd bars
+        [...chord.l].reverse().forEach((freq, i) => lead(bt + i * beat, freq, beat * 0.8));
+        chord.l.forEach((freq, i) => lead(bt + beat * 2.5 + i * (beat/4), freq * 2, (beat/4) * 0.75, 0.15));
+      }
+    }
+
+    const loopDur = beat * 16 * 1000 - 30;
+    const id = setTimeout(() => scheduleLoop(ac.currentTime), loopDur);
+    musicNodes.push({ stop: () => clearTimeout(id), disconnect: () => {} });
+  }
+
+  scheduleLoop(ac.currentTime + 0.05);
+}
+
+// ---- Trigger music on first user interaction (browser autoplay policy) ----
+let audioStarted = false;
+let isMuted = false;
+
+function initAudio() {
+  if (audioStarted) return;
+  audioStarted = true;
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume().then(() => playMenuMusic());
+  } else {
+    playMenuMusic();
+  }
+}
+
+// Re-attach on every interaction until audio starts
+['pointerdown','keydown','touchstart','click'].forEach(evt => {
+  document.addEventListener(evt, () => {
+    if (!audioStarted) initAudio();
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+  });
+});
+
+// Mute button
+document.getElementById('mute-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  isMuted = !isMuted;
+  const btn = document.getElementById('mute-btn');
+  if (isMuted) {
+    if (audioCtx) audioCtx.suspend();
+    btn.textContent = '🔇';
+  } else {
+    if (audioCtx) audioCtx.resume();
+    btn.textContent = '🔊';
+    if (!audioStarted) initAudio();
+  }
+});
 
 // Start the game
 init();

@@ -605,13 +605,18 @@ document.addEventListener('keydown', e => {
   }
 });
 
-canvas.addEventListener('pointerdown', e => { e.preventDefault(); doJump(); });
+canvas.addEventListener('pointerdown', e => { 
+  if (state === 'playing' || state === 'dead' || state === 'win') {
+    e.preventDefault(); 
+    doJump(); 
+  }
+});
 
 // Prevent touch events from triggering jump when interacting with forms or buttons
 document.addEventListener('touchstart', e => { 
   // Only trigger jump if not touching a form element or a button
   const isFormElement = e.target.closest('input, textarea, select, button');
-  if (!isFormElement) {
+  if (!isFormElement && (state === 'playing' || state === 'dead' || state === 'win')) {
     e.preventDefault(); 
     doJump(); 
   }

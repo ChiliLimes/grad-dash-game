@@ -878,7 +878,7 @@ function update() {
     document.getElementById('win-score').textContent = Math.floor(score);
     showScreen('win-screen');
     stopMusic();
-    setTimeout(() => playMenuMusic(), 500);
+    playPassedMusic();
     spawnParticles(LW / 2, LH / 2, '#f0c040', 40);
     spawnParticles(LW / 2, LH / 2, '#7b2fff', 40);
   }
@@ -889,6 +889,7 @@ function killPlayer() {
   if (score > bestScore) bestScore = score;
   document.getElementById('game-hud').classList.add('hidden');
   stopMusic();
+  playFailMusic();
   spawnParticles(player.x + player.w / 2, player.y + player.h / 2, '#ff4466', 20);
   document.getElementById('final-score').textContent = Math.floor(score);
   
@@ -1281,31 +1282,97 @@ setInterval(() => {
 }, 1000);
 
 // ============================================================
-//  AUDIO ENGINE
+//  AUDIO ENGINE — MP3 based
 // ============================================================
 
-let audioCtx = null;
-let currentMusic = null; // 'menu' | 'game' | null
-let musicNodes = [];     // all active oscillators/intervals to stop
+let isMuted = false;
+let currentTrack = null;
 
-function getAudioCtx() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  return audioCtx;
-}
+const tracks = {
+  graduation: document.getElementById('audio-graduation'),
+  treyvon:    document.getElementById('audio-treyvon'),
+  brad:       document.getElementById('audio-brad'),
+  taki:       document.getElementById('audio-taki'),
+  failed:     document.getElementById('audio-failed'),
+  passed:     document.getElementById('audio-passed'),
+};
+
+// Set all tracks to a reasonable volume
+Object.values(tracks).forEach(t => { if (t) t.volume = 0.7; });
 
 function stopMusic() {
-  musicNodes.forEach(n => {
-    try {
-      if (n.stop) n.stop();
-      if (n.disconnect) n.disconnect();
-      if (typeof n === 'number') clearInterval(n);
-    } catch(e) {}
+  Object.values(tracks).forEach(t => {
+    if (!t) return;
+    t.pause();
+    t.currentTime = 0;
   });
-  musicNodes = [];
-  currentMusic = null;
+  currentTrack = null;
 }
+
+function playTrack(name, loop = true) {
+  if (isMuted) return;
+  const t = tracks[name];
+  if (!t) return;
+  if (currentTrack === name && !t.paused) return; // already playing
+  stopMusic();
+  currentTrack = name;
+  t.loop = loop;
+  t.currentTime = 0;
+  t.play().catch(() => {}); // catch autoplay block silently
+}
+
+function playMenuMusic()  { playTrack('graduation', true); }
+function playGameMusic()  { playTrack(selectedChar, true); }  // Treyvon / Brad / Taki
+function playFailMusic()  { playTrack('failed', false); }
+function playPassedMusic(){ playTrack('passed', false); }
+
+// ---- Mute button ----
+let isMuted_flag = false;
+document.getElementById('mute-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  isMuted_flag = !isMuted_flag;
+  isMuted = isMuted_flag;
+  const btn = document.getElementById('mute-btn');
+  if (isMuted) {
+    Object.values(tracks).forEach(t => { if (t) t.pause(); });
+    btn.textContent = '🔇';
+  } else {
+    btn.textContent = '🔊';
+    // Resume whatever should be playing
+    if (state === 'playing') playGameMusic();
+    else playMenuMusic();
+  }
+});
+
+// ---- iOS / autoplay unlock on first tap ----
+let audioUnlocked = false;
+function unlockAudio() {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
+  // Touch all audio elements with a silent play to unlock iOS
+  Object.values(tracks).forEach(t => {
+    if (!t) return;
+    t.play().then(() => t.pause()).catch(() => {});
+  });
+  playMenuMusic();
+}
+
+document.getElementById('continue-to-application-btn').addEventListener('touchend', unlockAudio);
+document.getElementById('continue-to-application-btn').addEventListener('click', unlockAudio);
+document.addEventListener('pointerdown', function onFirst() {
+  unlockAudio();
+  document.removeEventListener('pointerdown', onFirst, true);
+}, true);
+
+document.addEventListener('visibilitychange', () => {
+  if (!isMuted && currentTrack && document.visibilityState === 'visible') {
+    tracks[currentTrack]?.play().catch(() => {});
+  }
+});
+
+// Start the game
+init();
+
 
 // ---- Graduation / Menu Music ----
 // Pomp and Circumstance-inspired: slow, majestic, ceremonial

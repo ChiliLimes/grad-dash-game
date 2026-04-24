@@ -670,7 +670,6 @@ function showScreen(id) {
 }
 
 function startGame() {
-  console.log('startGame called, state was:', state, new Error().stack);
   showScreen(null);
   document.getElementById('pause-btn').classList.remove('hidden');
   document.getElementById('game-hud').classList.remove('hidden');

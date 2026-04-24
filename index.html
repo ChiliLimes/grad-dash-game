@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Grad Dash 🎓</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="game-wrapper">
+    <canvas id="gameCanvas"></canvas>
+    
+    <!-- Mobile-friendly HUD -->
+    <div id="game-hud" class="hidden">
+      <div class="hud-score">
+        <span class="hud-label">Distance</span>
+        <span id="hud-score-value">0m</span>
+      </div>
+    </div>
+    
+    <button id="pause-btn" class="hidden" title="Pause (P)">⏸</button>
+
+    <!-- Overlay screens -->
+    
+    <!-- 1. High School Diploma Screen -->
+    <div id="diploma-screen" class="overlay">
+      <div class="overlay-box diploma-box">
+        <div class="diploma-border">
+          <div class="diploma-seal">🎓</div>
+          <h1 class="diploma-title">High School Diploma</h1>
+          <p class="diploma-subtitle">This certifies that</p>
+          <p class="diploma-name">You</p>
+          <p class="diploma-text">have successfully completed all requirements</p>
+          <p class="diploma-text">and are hereby awarded this</p>
+          <p class="diploma-honor">High School Diploma</p>
+          <div class="diploma-signatures">
+            <div class="signature-line">
+              <div class="signature">Principal Smith</div>
+              <div class="signature-label">Principal</div>
+            </div>
+            <div class="signature-line">
+              <div class="signature">Dr. Johnson</div>
+              <div class="signature-label">Superintendent</div>
+            </div>
+          </div>
+        </div>
+        <p class="diploma-message">🎉 Congratulations! You've graduated high school!</p>
+        <p class="diploma-description">
+          But your journey doesn't end here... College awaits! 
+          Navigate through 4 years of academia, survive the challenges, 
+          and make it to graduation. Are you ready?
+        </p>
+        <button id="continue-to-application-btn">📝 Apply to College</button>
+      </div>
+    </div>
+
+    <!-- 2. College Application Screen -->
+    <div id="application-screen" class="overlay hidden">
+      <div class="overlay-box application-box">
+        <div class="application-header">
+          <div class="gt-logo">🐝</div>
+          <h1>Georgia Tech</h1>
+          <p class="gt-tagline">Progress and Service</p>
+        </div>
+        
+        <h2 class="application-title">Undergraduate Application</h2>
+        <p class="application-subtitle">Complete the form below to apply</p>
+        
+        <form id="college-application-form">
+          <div class="form-group">
+            <label for="app-name">Full Name *</label>
+            <input type="text" id="app-name" required placeholder="Enter your name">
+          </div>
+          
+          <div class="form-group">
+            <label for="app-major">Intended Major *</label>
+            <select id="app-major" required>
+              <option value="">Select a major...</option>
+              <option value="Computer Science">Computer Science</option>
+              <option value="Engineering">Engineering</option>
+              <option value="Business">Business Administration</option>
+              <option value="Biology">Biology</option>
+              <option value="Mathematics">Mathematics</option>
+              <option value="Physics">Physics</option>
+              <option value="Architecture">Architecture</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="app-gpa">High School GPA *</label>
+            <select id="app-gpa" required>
+              <option value="">Select GPA...</option>
+              <option value="4.0">4.0 (Perfect!)</option>
+              <option value="3.8">3.8 (Excellent)</option>
+              <option value="3.5">3.5 (Great)</option>
+              <option value="3.0">3.0 (Good)</option>
+              <option value="2.5">2.5 (Decent)</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="app-essay">Why Georgia Tech? *</label>
+            <textarea id="app-essay" required placeholder="Tell us why you want to attend Georgia Tech..." rows="4"></textarea>
+          </div>
+          
+          <div class="form-checkbox">
+            <input type="checkbox" id="app-terms" required>
+            <label for="app-terms">I certify that all information is accurate *</label>
+          </div>
+          
+          <button type="submit" id="submit-application-btn">🚀 Submit Application</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- 3. Acceptance Letter Screen -->
+    <div id="acceptance-screen" class="overlay hidden">
+      <div class="overlay-box acceptance-box">
+        <div class="acceptance-header">
+          <div class="gt-logo-large">🐝</div>
+          <h1 class="gt-name">Georgia Institute of Technology</h1>
+          <p class="gt-address">Atlanta, Georgia</p>
+        </div>
+        
+        <div class="letter-content">
+          <p class="letter-date">Today</p>
+          
+          <p class="letter-greeting">Dear <span id="accepted-name">Student</span>,</p>
+          
+          <p class="letter-body">
+            <strong>Congratulations!</strong> On behalf of the Admissions Committee, 
+            I am delighted to offer you admission to the Georgia Institute of Technology 
+            as a member of the incoming class.
+          </p>
+          
+          <p class="letter-body">
+            You have been selected from an exceptionally talented pool of applicants. 
+            Your academic achievements, particularly your interest in 
+            <strong><span id="accepted-major">your chosen field</span></strong>, 
+            demonstrate the qualities we seek in Yellow Jackets.
+          </p>
+          
+          <p class="letter-body">
+            Your journey through college will be challenging but rewarding. 
+            You'll face obstacles, make friends, and grow as a person. 
+            <em>Are you ready to buzz into action?</em>
+          </p>
+          
+          <p class="letter-closing">
+            Welcome to Georgia Tech!<br>
+            <strong>Together We Swarm! 🐝</strong>
+          </p>
+          
+          <div class="letter-signature">
+            <div class="signature">Rick Clark</div>
+            <div class="signature-title">Director of Undergraduate Admission</div>
+          </div>
+          
+          <div class="letter-signature" style="margin-top: 25px;">
+            <div class="signature">Ángel Cabrera</div>
+            <div class="signature-title">President, Georgia Institute of Technology</div>
+          </div>
+        </div>
+        
+        <div class="acceptance-celebration">
+          <p class="celebration-text">🎉 YOU'RE IN! 🎉</p>
+          <p class="celebration-subtext">Now survive 4 years and make it to graduation...</p>
+        </div>
+        
+        <button id="start-college-btn">🎓 Begin College Journey</button>
+      </div>
+    </div>
+
+    <!-- 4. Character Selection Screen (existing) -->
+    <div id="start-screen" class="overlay hidden">
+      <div class="overlay-box wide">
+        <h1>🎓 Grad Dash</h1>
+        <p class="subtitle">Pick your grad and survive academia...</p>
+
+        <div class="char-select-row">
+
+          <div class="char-card" data-char="treyvon">
+            <canvas class="char-preview" id="preview-treyvon" width="80" height="100"></canvas>
+            <div class="char-name">Treyvon "The Grad"</div>
+            <div class="char-desc">"Showed up to orientation with a chain worth more than tuition."</div>
+            <div class="char-stats">
+              <span class="stat">💎 Has crazy drip </span>
+              <span class="stat">🎮 Won millions (V-Bucks) in Smite tournaments</span>
+              <span class="stat">💨 Has crazy sphincter control</span>
+            </div>
+          </div>
+
+          <div class="char-card" data-char="brad">
+            <canvas class="char-preview" id="preview-brad" width="80" height="100"></canvas>
+            <div class="char-name">Brad</div>
+            <div class="char-desc">"Loves Esme and Takis!"</div>
+            <div class="char-stats">
+              <span class="stat">🌶️ Will demolish a family-size bag of Takis in one sitting</span>
+              <span class="stat">🏄 Takes all the weight plates at the gym.</span>
+              <span class="stat">💳 Delivers milk in his truck on the weekends.</span>
+            </div>
+          </div>
+
+
+
+
+
+
+
+
+
+          <div class="char-card" data-char="taki">
+            <canvas class="char-preview" id="preview-taki" width="80" height="100"></canvas>
+            <div class="char-name">Taki</div>
+            <div class="char-desc">"The creator / dev of this game."</div>
+            <div class="char-stats">
+              <span class="stat">👨‍👩‍👧‍👦 The original Unc with a beautiful wife and a couple bebe kids</span>
+              <span class="stat">🤼 Will do an ankle pick when necessary</span>
+              <span class="stat">🧠 Has a giant head with plenty of room — like a warehouse with one box in it</span>
+            </div>
+          </div>
+
+        </div>
+
+        <p class="instructions" style="margin-top:10px">
+          <span class="key-hint">SPACE / CLICK</span> to jump &nbsp;|&nbsp;
+          <span class="key-hint">ESC / P</span> to pause
+        </p>
+        <button id="start-btn">Begin Your Journey</button>
+        <p class="hint">⚠️ Beware the obstacles of academia...</p>
+      </div>
+    </div>
+
+    <div id="game-over-screen" class="overlay hidden">
+      <div class="overlay-box exam-paper">
+        <div class="exam-header">
+          <div class="exam-title">FINAL EXAM</div>
+          <div class="exam-subject">Subject: Graduation 101</div>
+          <div class="exam-info">
+            <span>Name: <span id="exam-name">_____________</span></span>
+            <span>Date: Today</span>
+          </div>
+        </div>
+        
+        <div class="exam-body">
+          <div class="exam-question">
+            <strong>Question 1:</strong> Can you jump over obstacles?
+            <div class="answer">❌ <em>Nope, face-planted instead</em></div>
+          </div>
+          
+          <div class="exam-question">
+            <strong>Question 2:</strong> Did you make it to graduation?
+            <div class="answer">❌ <em>Not even close, buddy</em></div>
+          </div>
+          
+          <div class="exam-question">
+            <strong>Question 3:</strong> Distance traveled?
+            <div class="answer">✓ <span id="final-score">0</span>m <em>(out of <span id="total-distance">600</span>m needed)</em></div>
+          </div>
+        </div>
+        
+        <div class="grade-stamp">
+          <div class="grade-letter">F</div>
+          <div class="grade-text">FAILED</div>
+        </div>
+        
+        <p class="fail-message" id="fail-message">You must repeat this class!</p>
+        
+        <button id="retry-btn">📝 Retake Exam</button>
+      </div>
+    </div>
+
+    <div id="win-screen" class="overlay hidden">
+      <div class="overlay-box win">
+        <h1>🎓 Congratulations!</h1>
+        <p class="subtitle">You solved the mysteries of graduation!</p>
+        <div class="confetti-text">🎉🎊🎓🎉🎊</div>
+        <p class="score-display">Final Score: <span id="win-score">0</span>m</p>
+        <button id="play-again-btn">Play Again</button>
+      </div>
+    </div>
+
+    <div id="pause-screen" class="overlay hidden">
+      <div class="overlay-box">
+        <h1>⏸ Paused</h1>
+        <p class="subtitle">Take a breather. Academia will wait.</p>
+        <button id="resume-btn">Resume</button>
+        <button id="menu-btn" style="margin-top:10px;background:linear-gradient(135deg,#444,#222)">↩ Main Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

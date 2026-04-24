@@ -41,6 +41,7 @@ body {
   max-height: 100dvh;
   touch-action: none;
   image-rendering: auto;
+  pointer-events: none;
 }
 
 /* ---- Overlays ---- */

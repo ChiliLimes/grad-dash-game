@@ -578,7 +578,8 @@ function togglePause() {
 }
 
 function goToMenu() {
-  state = 'start';
+  state = 'onboarding';
+  canvas.style.pointerEvents = 'none';
   document.getElementById('pause-screen').classList.add('hidden');
   document.getElementById('pause-btn').classList.add('hidden');
   document.getElementById('game-hud').classList.add('hidden');
@@ -604,21 +605,18 @@ document.addEventListener('keydown', e => {
 });
 
 canvas.addEventListener('pointerdown', e => { 
-  if (state === 'playing' || state === 'dead' || state === 'win') {
+  if (state === 'playing') {
     e.preventDefault(); 
     doJump(); 
   }
 });
 
-// Prevent touch events from triggering jump when interacting with forms or buttons
-document.addEventListener('touchstart', e => { 
-  // Only trigger jump if not touching a form element or a button
-  const isFormElement = e.target.closest('input, textarea, select, button');
-  if (!isFormElement && (state === 'playing' || state === 'dead' || state === 'win')) {
-    e.preventDefault(); 
-    doJump(); 
+// Tap anywhere on screen to jump during gameplay (mobile)
+document.addEventListener('pointerdown', e => {
+  if (state === 'playing' && !e.target.closest('button, input, textarea, select, #pause-btn, #mute-btn')) {
+    doJump();
   }
-}, { passive: false });
+});
 
 // ---- UI buttons ----
 document.getElementById('start-btn').addEventListener('click', startGame);
@@ -675,6 +673,7 @@ function startGame() {
   showScreen(null);
   document.getElementById('pause-btn').classList.remove('hidden');
   document.getElementById('game-hud').classList.remove('hidden');
+  canvas.style.pointerEvents = 'auto';
   resetGame();
   state = 'playing';
   playGameMusic();
@@ -684,6 +683,7 @@ function restartGame() {
   showScreen(null);
   document.getElementById('pause-btn').classList.remove('hidden');
   document.getElementById('game-hud').classList.remove('hidden');
+  canvas.style.pointerEvents = 'auto';
   resetGame();
   state = 'playing';
   playGameMusic();
@@ -880,6 +880,7 @@ function update() {
   // Win condition
   if (score >= WIN_DISTANCE) {
     state = 'win';
+    canvas.style.pointerEvents = 'none';
     if (score > bestScore) bestScore = score;
     document.getElementById('win-score').textContent = Math.floor(score);
     showScreen('win-screen');
@@ -892,6 +893,7 @@ function update() {
 
 function killPlayer() {
   state = 'dead';
+  canvas.style.pointerEvents = 'none';
   if (score > bestScore) bestScore = score;
   document.getElementById('game-hud').classList.add('hidden');
   stopMusic();

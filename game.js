@@ -54,7 +54,7 @@ const BOSS_DISTANCE = 200;
 const WIN_DISTANCE = LEVEL_DISTANCE * 4 + BOSS_DISTANCE; // 600m
 
 // ---- State ----
-let state = 'start';  // start | playing | dead | win
+let state = 'onboarding';  // onboarding | start | playing | paused | dead | win
 let score = 0;
 let bestScore = 0;
 let gameSpeed = GAME_SPEED_INIT;
@@ -560,8 +560,6 @@ function doJump() {
     } else {
       player.jumpBuffer = 8;
     }
-  } else if (state === 'start') {
-    startGame();
   } else if (state === 'dead') {
     restartGame();
   } else if (state === 'win') {
@@ -668,6 +666,9 @@ function showScreen(id) {
     document.getElementById(s).classList.add('hidden');
   });
   if (id) document.getElementById(id).classList.remove('hidden');
+  // Track state based on which screen is showing
+  if (id === 'start-screen') state = 'start';
+  else if (id === 'diploma-screen' || id === 'application-screen' || id === 'acceptance-screen') state = 'onboarding';
 }
 
 function startGame() {

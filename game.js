@@ -1318,7 +1318,7 @@ function playTrack(name, loop = true) {
   currentTrack = name;
   t.loop = loop;
   t.currentTime = 0;
-  t.play().catch(() => {}); // catch autoplay block silently
+  t.play().catch(err => console.warn('Audio play failed:', name, err));
 }
 
 function playMenuMusic()  { playTrack('graduation', true); }
@@ -1327,18 +1327,15 @@ function playFailMusic()  { playTrack('failed', false); }
 function playPassedMusic(){ playTrack('passed', false); }
 
 // ---- Mute button ----
-let isMuted_flag = false;
 document.getElementById('mute-btn').addEventListener('click', (e) => {
   e.stopPropagation();
-  isMuted_flag = !isMuted_flag;
-  isMuted = isMuted_flag;
+  isMuted = !isMuted;
   const btn = document.getElementById('mute-btn');
   if (isMuted) {
     Object.values(tracks).forEach(t => { if (t) t.pause(); });
     btn.textContent = '🔇';
   } else {
     btn.textContent = '🔊';
-    // Resume whatever should be playing
     if (state === 'playing') playGameMusic();
     else playMenuMusic();
   }
@@ -1349,12 +1346,20 @@ let audioUnlocked = false;
 function unlockAudio() {
   if (audioUnlocked) return;
   audioUnlocked = true;
-  // Touch all audio elements with a silent play to unlock iOS
-  Object.values(tracks).forEach(t => {
-    if (!t) return;
-    t.play().then(() => t.pause()).catch(() => {});
-  });
-  playMenuMusic();
+  // Unlock by playing + immediately pausing one track, then start menu music
+  const first = Object.values(tracks).find(t => t);
+  if (first) {
+    first.play().then(() => {
+      first.pause();
+      first.currentTime = 0;
+      playMenuMusic();
+    }).catch(() => {
+      // Autoplay still blocked — just try playing directly
+      playMenuMusic();
+    });
+  } else {
+    playMenuMusic();
+  }
 }
 
 document.getElementById('continue-to-application-btn').addEventListener('touchend', unlockAudio);

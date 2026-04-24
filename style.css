@@ -649,6 +649,14 @@ button:active {
   margin: 15px 0;
 }
 
+.tap-sound-hint {
+  font-size: 0.85rem;
+  color: #f0c04099;
+  margin: 8px 0 0;
+  font-style: italic;
+  animation: pulse 2s ease-in-out infinite;
+}
+
 /* ---- College Application Screen ---- */
 .application-box {
   max-width: 500px;

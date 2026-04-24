@@ -1603,43 +1603,58 @@ function playGameMusic() {
 let audioStarted = false;
 let isMuted = false;
 
+// iOS Safari requires AudioContext created + sound played in the SAME
+// synchronous call stack as a touchend event. No promises, no delays.
 function initAudio() {
   if (audioStarted) return;
-  
-  // iOS Safari requires AudioContext to be created AND resumed inside a user gesture
+  audioStarted = true;
+
+  // Hide the sound hint
+  const hint = document.querySelector('.tap-sound-hint');
+  if (hint) hint.style.display = 'none';
+
   try {
-    if (!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // iOS: play a silent buffer immediately to unlock the context
+    const buf = audioCtx.createBuffer(1, 1, 22050);
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(audioCtx.destination);
+    src.start(0);
+
+    // Now resume (needed on some iOS versions) then start music
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().then(() => playMenuMusic());
+    } else {
+      playMenuMusic();
     }
-    // iOS often starts context in 'suspended' state — must resume inside the gesture
-    const resume = audioCtx.resume ? audioCtx.resume() : Promise.resolve();
-    resume.then(() => {
-      audioStarted = true;
-      playMenuMusic();
-    }).catch(() => {
-      audioStarted = true;
-      playMenuMusic();
-    });
   } catch(e) {
     console.warn('Audio init failed:', e);
   }
 }
 
-// iOS Safari: must be triggered from touchend (not touchstart) for reliable audio
-document.addEventListener('touchend', () => {
-  if (!audioStarted) initAudio();
-  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-}, { passive: true });
+// Use capture phase so this fires before anything else consumes the event
+document.addEventListener('touchend', function onFirstTouch() {
+  initAudio();
+  document.removeEventListener('touchend', onFirstTouch, true);
+}, true);
 
-// Desktop fallback
-document.addEventListener('pointerdown', () => {
-  if (!audioStarted) initAudio();
-  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-});
+document.addEventListener('pointerdown', function onFirstClick() {
+  initAudio();
+  document.removeEventListener('pointerdown', onFirstClick, true);
+}, true);
 
-document.addEventListener('keydown', () => {
-  if (!audioStarted) initAudio();
-  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+document.addEventListener('keydown', function onFirstKey() {
+  initAudio();
+  document.removeEventListener('keydown', onFirstKey, true);
+}, true);
+
+// Resume context if iOS suspends it when app goes to background
+document.addEventListener('visibilitychange', () => {
+  if (!isMuted && audioCtx && document.visibilityState === 'visible') {
+    audioCtx.resume();
+  }
 });
 
 // Mute button

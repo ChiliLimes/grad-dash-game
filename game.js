@@ -1603,31 +1603,17 @@ function playGameMusic() {
 let audioStarted = false;
 let isMuted = false;
 
-document.getElementById('audio-unlock-btn').addEventListener('touchend', function(e) {
-  e.preventDefault();
-  unlockAudio();
-});
-document.getElementById('audio-unlock-btn').addEventListener('click', function(e) {
-  unlockAudio();
-});
-
 function unlockAudio() {
-  // Hide the unlock screen
-  document.getElementById('audio-unlock').classList.add('hidden');
-
   if (audioStarted) return;
   audioStarted = true;
 
   try {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-    // Play a silent buffer — the iOS unlock trick
     const buf = audioCtx.createBuffer(1, 1, 22050);
     const src = audioCtx.createBufferSource();
     src.buffer = buf;
     src.connect(audioCtx.destination);
     src.start(0);
-
     const go = () => playMenuMusic();
     if (audioCtx.state === 'suspended') {
       audioCtx.resume().then(go);
@@ -1639,18 +1625,22 @@ function unlockAudio() {
   }
 }
 
+// Unlock audio on the very first button tap (works on iOS)
+document.getElementById('continue-to-application-btn').addEventListener('touchend', unlockAudio);
+document.getElementById('continue-to-application-btn').addEventListener('click', unlockAudio);
+
+// Desktop fallback
+document.addEventListener('pointerdown', function onFirstClick() {
+  if (!audioStarted) unlockAudio();
+  document.removeEventListener('pointerdown', onFirstClick, true);
+}, true);
+
 // Resume if iOS suspends audio when switching apps
 document.addEventListener('visibilitychange', () => {
   if (!isMuted && audioCtx && document.visibilityState === 'visible') {
     audioCtx.resume();
   }
 });
-
-// Desktop fallback — still works without the unlock screen
-document.addEventListener('pointerdown', function onFirstClick() {
-  if (!audioStarted) unlockAudio();
-  document.removeEventListener('pointerdown', onFirstClick, true);
-}, true);
 
 // Mute button
 document.getElementById('mute-btn').addEventListener('click', (e) => {

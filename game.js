@@ -1289,7 +1289,9 @@ let currentMusic = null; // 'menu' | 'game' | null
 let musicNodes = [];     // all active oscillators/intervals to stop
 
 function getAudioCtx() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
   return audioCtx;
 }
 
@@ -1603,22 +1605,41 @@ let isMuted = false;
 
 function initAudio() {
   if (audioStarted) return;
-  audioStarted = true;
-  if (audioCtx && audioCtx.state === 'suspended') {
-    audioCtx.resume().then(() => playMenuMusic());
-  } else {
-    playMenuMusic();
+  
+  // iOS Safari requires AudioContext to be created AND resumed inside a user gesture
+  try {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    // iOS often starts context in 'suspended' state — must resume inside the gesture
+    const resume = audioCtx.resume ? audioCtx.resume() : Promise.resolve();
+    resume.then(() => {
+      audioStarted = true;
+      playMenuMusic();
+    }).catch(() => {
+      audioStarted = true;
+      playMenuMusic();
+    });
+  } catch(e) {
+    console.warn('Audio init failed:', e);
   }
 }
 
-// Re-attach on every interaction until audio starts
-['pointerdown','keydown','touchstart','click'].forEach(evt => {
-  document.addEventListener(evt, () => {
-    if (!audioStarted) initAudio();
-    if (audioCtx && audioCtx.state === 'suspended') {
-      audioCtx.resume();
-    }
-  });
+// iOS Safari: must be triggered from touchend (not touchstart) for reliable audio
+document.addEventListener('touchend', () => {
+  if (!audioStarted) initAudio();
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}, { passive: true });
+
+// Desktop fallback
+document.addEventListener('pointerdown', () => {
+  if (!audioStarted) initAudio();
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+});
+
+document.addEventListener('keydown', () => {
+  if (!audioStarted) initAudio();
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
 });
 
 // Mute button
